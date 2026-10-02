@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日次報告書作成ツール</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f0;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+    color: #1a1a1a;
+  }
+  .container { max-width: 720px; margin: 0 auto; }
+  .section {
+    background: #fff;
+    border: 0.5px solid #d6d3c9;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #666;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
+  }
+  input[type="text"], input[type="date"], textarea, select {
+    width: 100%;
+    padding: 7px 10px;
+    border: 0.5px solid #ccc;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #1a1a1a;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: #7F77DD; }
+  textarea { resize: vertical; min-height: 60px; }
+  .task-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+  .col-headers { display: flex; gap: 8px; margin-bottom: 4px; }
+  .col-header { font-size: 11px; color: #999; }
+  .add-btn {
+    font-size: 13px; color: #4a7fd4; cursor: pointer;
+    background: none; border: none; padding: 4px 0; font-family: inherit;
+  }
+  .add-btn:hover { text-decoration: underline; }
+  .remove-btn {
+    background: none; border: none; color: #aaa;
+    cursor: pointer; font-size: 18px; padding: 4px;
+    line-height: 1; flex-shrink: 0; width: 26px;
+  }
+  .remove-btn:hover { color: #e05555; }
+  .generate-btn {
+    width: 100%; padding: 11px;
+    font-size: 15px; font-weight: 500;
+    background: #4a7fd4; color: #fff;
+    border: none; border-radius: 8px;
+    cursor: pointer; font-family: inherit;
+    transition: opacity 0.15s;
+  }
+  .generate-btn:hover { opacity: 0.88; }
+  .date-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .date-label { font-size: 13px; color: #666; white-space: nowrap; }
+  .date-preview { font-size: 13px; color: #7F77DD; font-weight: 500; margin-top: 6px; }
+  .output-wrap { margin-top: 1rem; }
+  .output-box {
+    background: #fafaf8;
+    border: 0.5px solid #bbb;
+    border-radius: 8px;
+    padding: 1.25rem;
+    font-family: 'Menlo', 'Consolas', monospace;
+    white-space: pre-wrap;
+    line-height: 1.85;
+  }
+  .out-date { color: #7F77DD; font-size: 26px; font-weight: 500; display: block; margin-bottom: 4px; }
+  .out-index { color: #8B4513; font-size: 18px; font-weight: 500; }
+  .out-body { color: #222; font-size: 15px; }
+  .copy-btn {
+    margin-top: 8px; width: 100%; padding: 9px;
+    font-size: 13px; color: #4a7fd4;
+    border: 0.5px solid #4a7fd4;
+    background: #eef3fc; border-radius: 8px;
+    cursor: pointer; font-family: inherit;
+    transition: opacity 0.15s;
+  }
+  .copy-btn:hover { opacity: 0.82; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>📋 日次報告書作成ツール</h1>
+
+  <div class="section">
+    <div class="section-title">報告日</div>
+    <div class="date-row">
+      <span class="date-label">📅 日付</span>
+      <input type="date" id="report-date" style="flex:1;">
+    </div>
+    <div class="date-preview" id="date-preview"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">本日の予定 → 実績</div>
+    <div class="col-headers">
+      <div class="col-header" style="flex:1;">予定タスク</div>
+      <div class="col-header" style="flex:1;">結果・実績</div>
+      <div class="col-header" style="width:100px;flex-shrink:0;">ステータス</div>
+      <div class="col-header" style="width:26px;"></div>
+    </div>
+    <div id="tasks-container"></div>
+    <button class="add-btn" onclick="addTask()">＋ タスクを追加</button>
+  </div>
+
+  <div class="section">
+    <div class="section-title">予定外対応（任意）</div>
+    <textarea id="unplanned" placeholder="例：Hypercare関連の問い合わせ対応（1件）"></textarea>
+  </div>
+
+  <div class="section">
+    <div class="section-title">未完了事項（任意）</div>
+    <textarea id="incomplete" placeholder="例：○○の資料作成（明日対応予定）"></textarea>
+  </div>
+
+  <div class="section">
+    <div class="section-title">明日の予定</div>
+    <textarea id="tomorrow" placeholder="例：AI活用トレーニング続き&#10;例：案件探索"></textarea>
+  </div>
+
+  <button class="generate-btn" onclick="generate()">報告書を生成する</button>
+
+  <div class="output-wrap" id="output-wrap" style="display:none;">
+    <div class="section-title" style="margin-bottom:6px; font-size:13px; color:#666;">生成された報告書</div>
+    <div class="output-box" id="output-box"></div>
+    <button class="copy-btn" onclick="copyText()">📋 クリップボードにコピー</button>
+  </div>
+</div>
+
+<script>
+  const DAYS = ['日','月','火','水','木','金','土'];
+  let taskCount = 0;
+  let plainText = '';
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${DAYS[d.getDay()]}）`;
+  }
+
+  const dateInput = document.getElementById('report-date');
+  const datePreview = document.getElementById('date-preview');
+  dateInput.value = todayStr();
+  datePreview.textContent = formatDate(dateInput.value);
+  dateInput.addEventListener('change', () => { datePreview.textContent = formatDate(dateInput.value); });
+
+  function addTask(name='', result='', status='完了') {
+    taskCount++;
+    const id = taskCount;
+    const container = document.getElementById('tasks-container');
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    row.id = 'task-' + id;
+    row.innerHTML = `
+      <input class="task-name" type="text" placeholder="例：AI活用基礎トレーニング" value="${name}" style="flex:1;">
+      <input class="task-result" type="text" placeholder="例：完了　応募2件" value="${result}" style="flex:1;">
+      <select class="task-status" style="width:100px;flex-shrink:0;">
+        <option value="完了" ${status==='完了'?'selected':''}>✅ 完了</option>
+        <option value="一部完了" ${status==='一部完了'?'selected':''}>🔶 一部完了</option>
+        <option value="持越し" ${status==='持越し'?'selected':''}>⏩ 持越し</option>
+      </select>
+      <button class="remove-btn" onclick="removeTask(${id})" title="削除">×</button>
+    `;
+    container.appendChild(row);
+  }
+
+  function removeTask(id) {
+    const el = document.getElementById('task-' + id);
+    if (el) el.remove();
+  }
+
+  function addSpan(box, text, cls) {
+    const s = document.createElement('span');
+    s.className = cls;
+    s.textContent = text;
+    box.appendChild(s);
+  }
+
+  function generate() {
+    const dateStr = formatDate(dateInput.value);
+    const rows = document.querySelectorAll('.task-row');
+    const nums = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩'];
+    const unplanned = document.getElementById('unplanned').value.trim();
+    const incomplete = document.getElementById('incomplete').value.trim();
+    const tomorrow = document.getElementById('tomorrow').value.trim();
+
+    plainText = dateStr ? dateStr + '\n' : '';
+    const box = document.getElementById('output-box');
+    box.innerHTML = '';
+
+    if (dateStr) addSpan(box, dateStr + '\n', 'out-date');
+
+    const sections = [
+      { label: '【本日の予定→実績】', type: 'tasks' },
+      { label: '【予定外対応】', type: 'list', value: unplanned },
+      { label: '【未完了事項】', type: 'list', value: incomplete },
+      { label: '【明日の予定】', type: 'list', value: tomorrow },
+    ];
+
+    sections.forEach(sec => {
+      addSpan(box, sec.label + '\n', 'out-index');
+      plainText += sec.label + '\n';
+
+      if (sec.type === 'tasks') {
+        let i = 0;
+        rows.forEach(row => {
+          const name = row.querySelector('.task-name').value.trim();
+          const result = row.querySelector('.task-result').value.trim();
+          const status = row.querySelector('.task-status').value;
+          if (!name) return;
+          const num = nums[i] || `(${i+1})`;
+          const l1 = `${num}${name}\n`, l2 = `　結果：${result || status}\n`;
+          addSpan(box, l1, 'out-body'); addSpan(box, l2, 'out-body');
+          plainText += l1 + l2; i++;
+        });
+        if (i === 0) { addSpan(box, '（記載なし）\n', 'out-body'); plainText += '（記載なし）\n'; }
+      } else {
+        const val = sec.value;
+        if (val) {
+          val.split('\n').filter(l=>l.trim()).forEach(l => {
+            const line = `・${l.replace(/^・/,'').trim()}\n`;
+            addSpan(box, line, 'out-body'); plainText += line;
+          });
+        } else {
+          const fb = sec.label.includes('明日') ? '（未定）\n' : 'なし\n';
+          addSpan(box, fb, 'out-body'); plainText += fb;
+        }
+      }
+    });
+
+    document.getElementById('output-wrap').style.display = 'block';
+  }
+
+  function copyText() {
+    navigator.clipboard.writeText(plainText).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = '✓ コピーしました';
+      setTimeout(() => btn.textContent = '📋 クリップボードにコピー', 2000);
+    });
+  }
+
+  addTask('', '', '完了');
+</script>
+</body>
+</html>
